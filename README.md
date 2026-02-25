@@ -45,7 +45,7 @@ FROM person AS p {
     SET amount = o.amount
   } ORDER BY amount ASC,
 
-  LET order_count = COUNT(orders),
+  LET order_count = COUNT OF orders,
   SET order_count = order_count,
 
   WHERE order_count > 10

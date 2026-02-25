@@ -161,20 +161,39 @@ FROM orders AS o {
 }
 ```
 
+### Multiple `FLATMAP` blocks
+
+Use multiple `FLATMAP` blocks when you want to emit rows from different arrays in one weave.
+
+```sql
+FROM customers AS c {
+	FLATMAP c.emails AS email {
+		SET customer_id = c.id,
+		SET type  = 'email',
+		SET value = email
+	},
+	FLATMAP c.phones AS phone {
+		SET customer_id = c.id,
+		SET type  = 'phone',
+		SET value = phone
+	}
+}
+```
+
 ## Expression model
 
 Expressions in `SET`, `LET`, and `WHERE` are pass-through PostgreSQL SQL expressions.
 
-### `COUNT(array_expr)`
+### `COUNT OF array_expr`
 
-Use `COUNT(...)` when you want array length without caring whether the value is JSONB or a typed PostgreSQL array.
+Use `COUNT OF ...` when you want array length without caring whether the value is JSONB or a typed PostgreSQL array.
 
 ```sql
 FROM person AS p {
 	SET orders = COLLECT orders AS o ON o.cust_id = p.id {
 		SET id = o.id
 	},
-	LET order_count = COUNT(orders),
+	LET order_count = COUNT OF orders,
 	SET order_count = order_count
 }
 ```

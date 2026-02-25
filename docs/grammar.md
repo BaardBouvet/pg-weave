@@ -42,7 +42,7 @@ dsl_expr             ::= count_expr
                        | lookup_expr
                        | collect_expr
                        | map_expr ;
-count_expr           ::= "COUNT" "(" value_expr ")" ;
+count_expr           ::= "COUNT" "OF" value_expr ;
 
 lookup_expr          ::= "LOOKUP" source_ref "ON" sql_expr ;
 
@@ -85,5 +85,5 @@ sql_expr             ::= <PostgreSQL SQL expression> ;
   - Trailing (`{ ... WHERE ... }`) for filtering after computed `LET`/`SET` values
 - `MAP` supports both shorthand (`-> sql_expr`) and block form (`{ SET ... }`).
 - `COLLECT` in the stable grammar uses `ON ...` join semantics for related-row collection.
-- `COUNT(array_expr)` is a polymorphic language helper that lowers to `jsonb_array_length(...)` for JSONB arrays and `cardinality(...)` for typed PG arrays.
-- `COUNT(array_expr)` is a DSL helper form (array length), distinct from SQL aggregate `COUNT(...)` over rows.
+- `COUNT OF array_expr` is a polymorphic language helper that lowers to `jsonb_array_length(...)` for JSONB arrays and `cardinality(...)` for typed PG arrays.
+- `COUNT OF ...` is DSL syntax for array length and does not overlap with SQL aggregate function call syntax.
