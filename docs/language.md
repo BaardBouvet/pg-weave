@@ -79,24 +79,6 @@ FROM orders AS o WHERE o.status = 'active' {
 }
 ```
 
-### `WITH` (optional JSONB shape)
-
-Declares JSONB field shape for compile-time validation/casting hints.
-
-```sql
-FROM orders AS o
-	WITH data { items [{ price numeric, qty integer }] }
-{
-	-- `item.price` and `item.qty` are validated by WITH shape
-	SET total = SUM(MAP o.data.items AS item -> item.price * item.qty)
-}
-```
-
-Without `WITH`, JSONB paths are flexible and many mistakes are only caught later by PostgreSQL at execution time.
-
-For full schema/type behavior (input validation, output typing, JSONB vs typed nested outputs),
-see [Schema and Typing Guide](schema.md).
-
 ## Data operations
 
 - `LOOKUP dataset ON ...` — fetch one related entity (1:1)
@@ -210,6 +192,18 @@ FROM customers AS c {
 ## Expression model
 
 Expressions in `SET`, `LET`, and `WHERE` are pass-through PostgreSQL SQL expressions.
+
+### JSONB dot-path access
+
+Dot-path notation on JSONB columns compiles to `->` / `->>` extraction. JSONB extraction always returns `text`, so use standard SQL casts when you need a specific type:
+
+```sql
+FROM orders AS o {
+	SET total = SUM(
+		MAP o.data.items AS item -> item.price::numeric * item.qty::integer
+	)
+}
+```
 
 ### `COUNT OF array_expr`
 

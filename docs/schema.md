@@ -1,25 +1,6 @@
 # Schema and Typing Guide
 
-pg_weave separates input validation from nested output typing.
-
-## Optional typing principle
-
-Output typing is opt-in. You can ship weaves without defining output types first, and add types later when contracts need to be stricter.
-
-## Input shape (`WITH`)
-
-`WITH` is optional and only describes JSONB input structure on `FROM`.
-
-```sql
-FROM orders AS o
-  WITH data { items [{ price numeric, qty integer }], notes text }
-{
-  SET total = SUM(MAP o.data.items AS item -> item.price * item.qty)
-}
-```
-
-- Use `WITH` for compile-time JSON path/type validation.
-- `WITH` does not define output field types.
+Output typing in pg_weave is optional by design: start schemaless, then opt into stricter nested types only when needed.
 
 ## Nested output typing (`INTO`)
 
@@ -60,6 +41,5 @@ SQL generation summary:
 
 ## Practical default
 
-- Start without `WITH` and without `INTO`.
-- Add `WITH` when JSONB input safety matters.
+- Start without `INTO`.
 - Add `INTO` only when downstream consumers need typed nested arrays.

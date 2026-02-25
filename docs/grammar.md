@@ -11,11 +11,8 @@ This document defines the formal grammar for pg_weave.
 ```ebnf
 weave_definition     ::= from_block EOF ;
 
-from_block           ::= "FROM" source_ref [with_clause] [inline_where] block ;
+from_block           ::= "FROM" source_ref [inline_where] block ;
 source_ref           ::= identifier ["AS" identifier] ;
-
-with_clause          ::= "WITH" with_entry { "," with_entry } ;
-with_entry           ::= identifier json_shape ;
 
 inline_where         ::= "WHERE" sql_expr ;
 
@@ -67,12 +64,9 @@ order_item           ::= sql_expr ["ASC" | "DESC"] ;
 
 limit_clause         ::= "LIMIT" integer ;
 
-json_shape           ::= "{" json_field { "," json_field } [","] "}" ;
-json_field           ::= identifier type_ref ;
 type_ref             ::= pg_type
                        | "jsonb"
-                       | "[" type_ref "]"
-                       | json_shape ;
+                       | "[" type_ref "]" ;
 
 identifier           ::= /[A-Za-z_][A-Za-z0-9_]*/ ;
 integer              ::= /[0-9]+/ ;

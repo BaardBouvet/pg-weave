@@ -16,7 +16,6 @@ The DSL should avoid extra inline syntax noise for common cases.
 - The `INTO` target is a standard PG composite type (`CREATE TYPE ... AS (...)`).
 - The compiler resolves `INTO` targets from `pg_catalog` (PG extension) or project declarations (dbt plugin).
 - Scalar/top-level `SET` fields continue to use expression/type inference rules from ADR 010.
-- `WITH` remains input-side JSONB validation/casting only (ADR 010); it is not replaced by this ADR.
 
 ## Rationale
 
@@ -24,7 +23,7 @@ The DSL should avoid extra inline syntax noise for common cases.
 - `INTO` is local to the point of use — output mode is visible where it matters.
 - Reuses PG composite types instead of inventing a parallel type system.
 - Composite types are sharable across weaves without redeclaring.
-- Preserves separation of concerns: input validation (`WITH`) vs output typing (`INTO`).
+- Preserves separation of concerns: catalog introspection for input vs `INTO` for output typing.
 
 ## Consequences
 
