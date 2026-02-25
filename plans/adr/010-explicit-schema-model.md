@@ -16,9 +16,9 @@ How the compiler learns table structure depends on runtime context:
 
 `WITH` in this ADR is strictly for **input JSONB shape description** on `FROM`. Nested output typing is handled separately in ADR 016.
 
-ADR 016 also tracks an alternative to inline modifiers: declare output schema once at weave level (reusing SCHEMA syntax) and let nested field types (`jsonb` vs `some_type[]`) drive `COLLECT`/`MAP` output mode. Without an output schema, nested outputs would fall back to JSONB by default. This keeps `WITH` focused on input shape only.
+Output typing uses `INTO` on `COLLECT`/`MAP` (ADR 016). `INTO` names a PG composite type — the compiler resolves it from `pg_catalog` (PG extension) or project declarations (dbt plugin). Without `INTO`, nested outputs default to JSONB.
 
-Important: output schema is **not** a replacement for `WITH` input validation. Output schema describes what the weave emits; `WITH` describes and validates JSONB fields read from inputs (including fields used only in `LET`, `WHERE`, `ON`, or `ORDER BY` and not present in output).
+Important: `INTO` is **not** a replacement for `WITH` input validation. `INTO` describes what a nested block emits; `WITH` describes and validates JSONB fields read from inputs (including fields used only in `LET`, `WHERE`, `ON`, or `ORDER BY` and not present in output).
 
 ### WITH clause — optional JSONB validation (PG extension)
 
@@ -57,36 +57,39 @@ SCHEMA orders {
 }
 ```
 
-### SCHEMA vs TYPE naming rule
+### Output typing — INTO clause
 
-To keep schema declarations consistent:
-
-- Use `SCHEMA` for top-level entity contracts (datasets and output contracts)
-- Use `TYPE` for reusable nested value/object definitions
-- Top-level `SCHEMA` fields can reference `TYPE` names, including arrays like `order_summary[]`
-
-Example:
+Nested `COLLECT`/`MAP` outputs can target a PG composite type via `INTO`:
 
 ```
-TYPE order_summary {
-  order_id text,
-  amount   numeric
-}
+-- PG composite type (standard DDL, managed outside the weave)
+CREATE TYPE order_summary AS (id text, amount numeric);
 
-SCHEMA person_with_orders {
-  id     text,
-  name   text,
-  orders order_summary[]
+-- Weave references the type via INTO
+FROM customers AS c {
+  SET id = c.id,
+  SET orders = COLLECT orders AS o ON o.customer_id = c.id
+    INTO order_summary[] {
+    SET id = o.id,
+    SET amount = o.amount
+  }
 }
 ```
+
+Without `INTO`, the nested output defaults to JSONB (ADR 016).
+
+`SCHEMA` remains available in dbt plugin mode as a catalog substitute for **input** table shapes.
 
 ### DDL change detection
 
-The PG extension registers an `EVENT TRIGGER` on `ddl_command_end` for `ALTER TABLE`. When a source table changes:
-1. Look up which weaves reference the changed table
-2. Re-introspect the table's new schema from `pg_catalog`
-3. Re-generate and replace the VIEW SQL
-4. Raise a WARNING if the new schema is incompatible with the weave definition
+The PG extension registers an `EVENT TRIGGER` on `ddl_command_end` for schema-affecting DDL, including `ALTER TABLE` and `ALTER TYPE` (for custom/composite types).
+
+When a relevant object changes:
+1. Resolve impacted relations/types (changed table directly, or tables/columns using the changed type)
+2. Look up which weaves reference those relations or `INTO` target types
+3. Re-introspect column/type metadata from `pg_catalog` (names, scalar/composite kind, array/composite element details)
+4. Re-generate and replace the VIEW SQL
+5. Raise a WARNING if the new schema/type contract is incompatible with the weave definition
 
 ### Field access
 
@@ -111,7 +114,7 @@ The compiler auto-detects array type from introspected or declared schema.
 - **Works with existing tables** — pg_weave reads any PG table, no special conventions required
 - **Progressive detail** — start with no `WITH` (bare JSONB), add structure later for validation
 - **Hybrid tables** — mix typed columns + JSONB + PG arrays + composite types freely
-- **Automatic maintenance** — DDL event trigger keeps VIEWs in sync with source table changes
+- **Automatic maintenance** — DDL event trigger keeps VIEWs in sync with source table and custom type changes
 - **dbt portability** — explicit `SCHEMA` makes definitions self-contained outside the database
 
 ## Consequences

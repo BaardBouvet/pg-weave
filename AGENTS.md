@@ -1,11 +1,6 @@
 # AGENTS.md
 
-Guidelines for AI agents working on this project.
-
-Note: The `pg_weave/` and `pgmerge/` directories contain experimental plans and
-related ADRs. When working on `pg-dtl` tasks, do not read or modify files under
-`pg_weave/` or `pgmerge/` unless the user explicitly asks you to. Treat them as
-separate workspace areas used for exploration and iteration.
+Guidelines for anyone working on this project.
 
 ## ADRs (`plans/adr/`)
 

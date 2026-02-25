@@ -92,13 +92,10 @@ FROM orders AS o
 }
 ```
 
-Validation here means compile-time checks against the declared JSON shape:
+Without `WITH`, JSONB paths are flexible and many mistakes are only caught later by PostgreSQL at execution time.
 
-- referenced fields exist (for example `items`, `price`, `qty`)
-- nested structure matches usage (object vs array vs scalar)
-- field types are compatible with expression usage
-
-Without `WITH`, JSONB paths are treated as flexible and many mistakes are only caught later by PostgreSQL at execution time.
+For full schema/type behavior (input validation, output typing, JSONB vs typed nested outputs),
+see [Schema and Typing Guide](schema.md).
 
 ## Data operations
 
@@ -152,6 +149,18 @@ FROM customers AS c {
 	} ORDER BY amount DESC
 }
 ```
+
+Add `INTO type[]` to target a PG composite type instead of the JSONB default:
+
+```sql
+SET orders = COLLECT orders AS o ON o.customer_id = c.id
+	INTO order_summary[] {
+	SET id     = o.id,
+	SET amount = o.amount
+}
+```
+
+Full typing rules are documented in [Schema and Typing Guide](schema.md).
 
 ### `MAP`
 

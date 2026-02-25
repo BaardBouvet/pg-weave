@@ -6,9 +6,12 @@ pg_weave is a fresh, SQL-inspired language for shaping complex PostgreSQL data i
 
 Write transforms that read like intent, not plumbing — then compile them into standard PostgreSQL `VIEW`s that fit naturally into your existing stack.
 
+pg_weave is not a replacement for SQL. It keeps SQL at the center and makes the repetitive nested-shaping parts dramatically easier.
+
 - Works with real-world table shapes: typed columns, JSONB, arrays, and mixed schemas
+- SQL pass-through by default for expressions and functions
+- Optional output typing: start schemaless, add `INTO` typed nested outputs when needed
 - Primary runtime: PostgreSQL extension (`pg_weave(...)`)
-- Secondary runtime: dbt plugin workflow
 - Output: deterministic SQL suitable for normal PG tooling and materialization flows
 
 ## Annotated Example
@@ -37,6 +40,7 @@ SELECT pg_weave('person_with_orders', $$
 -- Persons enriched with sorted orders and derived order count
 FROM person AS p {
   SET id = p.id,
+  -- regular SQL literals/functions work directly
   SET type = 'customer',
   SET name = upper(p.name),
 
@@ -72,3 +76,4 @@ This produces rows shaped like:
 
 - [Language reference](docs/language.md)
 - [Grammar specification (EBNF)](docs/grammar.md)
+- [Schema and typing guide](docs/schema.md)
