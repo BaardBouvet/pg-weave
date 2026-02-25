@@ -80,6 +80,8 @@ sql_expr             ::= <PostgreSQL SQL expression> ;
 
 ## Interpretation notes
 
+- `SET` and `LET` statements can be interleaved within a block.
+- A `LET` binding is available from its declaration onward in the same block; use-before-declaration is invalid.
 - `WHERE` is valid in two places:
   - Inline (`FROM ... WHERE ... {}` / `COLLECT ... WHERE ... {}`)
   - Trailing (`{ ... WHERE ... }`) for filtering after computed `LET`/`SET` values

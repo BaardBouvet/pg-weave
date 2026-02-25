@@ -48,6 +48,13 @@ FROM orders AS o {
 
 Computes a reusable intermediate value before emitting fields.
 
+Ordering rule in a block:
+
+- `SET` and `LET` can be interleaved.
+- A `LET` binding is in scope from its declaration onward in that block.
+- Referencing a `LET` name before its declaration is invalid.
+- `SET` names are output fields, not reusable expression bindings; use `LET` for references.
+
 ```sql
 FROM orders AS o {
 	-- reusable local value (not emitted by itself)
