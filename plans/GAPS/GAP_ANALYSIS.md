@@ -17,7 +17,7 @@ Namespace collision is primarily a concern when *merging* identities from multip
 
 Sesam Hub's `["copy", "*"]` copies all properties, then you modify a few. `SET *` copies all source columns at compile time, with optional `EXCEPT` and explicit `SET` overrides (order-independent).
 
-**Resolution:** `SET *` with `EXCEPT`. See [ADR 015](adr/015-set-wildcard.md).
+**Resolution:** `SET *` with `EXCEPT`. See [ADR 015](../adr/015-set-wildcard.md).
 
 ### 3. Soft-Delete Filtering (`_deleted`)
 
@@ -37,13 +37,13 @@ FROM orders AS o WHERE NOT o.deleted {
 
 DTL's `["filter"]` conditionally drops entities mid-transform. pg_weave supports `WHERE` in two positions: inline (on source, before block) and block-trailing (at end of `{ }`, after LET computations). Both work at every level — top-level weave, COLLECT, MAP, FLATMAP.
 
-**Resolution:** Inline + block-trailing WHERE. See [ADR 014](adr/014-where-clause.md).
+**Resolution:** Inline + block-trailing WHERE. See [ADR 014](../adr/014-where-clause.md).
 
 ### 5. Non-Deterministic Functions (`now`, `uuid`)
 
 Using non-deterministic functions like `now()` makes a VIEW VOLATILE, breaking IVM. This is the user's responsibility — pg_weave passes expressions through to SQL without detection or blocking. The IVM extension itself will reject incompatible VIEWs.
 
-**Resolution:** Defer to user. See [ADR 013](adr/013-sql-pass-through-expressions.md).
+**Resolution:** Defer to user. See [ADR 013](../adr/013-sql-pass-through-expressions.md).
 
 ## Moderate Gaps
 
@@ -63,7 +63,7 @@ Sesam DTL supports multi-stage transform passes (each stage's output feeds the n
 
 `CASE WHEN ... THEN ... ELSE ... END` is a SQL expression and passes through to the generated VIEW unchanged. No special DSL handling needed.
 
-**Resolution:** SQL pass-through. See [ADR 013](adr/013-sql-pass-through-expressions.md).
+**Resolution:** SQL pass-through. See [ADR 013](../adr/013-sql-pass-through-expressions.md).
 
 ### 9. Explain / Validate Tooling
 
@@ -106,11 +106,11 @@ These Sesam Hub features don't apply to a PG extension model:
 | # | Gap | Resolution | ADR |
 |---|-----|------------|-----|
 | 1 | Namespaces | N/A — pgmerge concern | |
-| 2 | Copy semantics | `SET *` with `EXCEPT` | [015](adr/015-set-wildcard.md) |
+| 2 | Copy semantics | `SET *` with `EXCEPT` | [015](../adr/015-set-wildcard.md) |
 | 3 | Soft-delete | Defer to user — use WHERE | |
-| 4 | Mid-transform filter | Inline + trailing WHERE | [014](adr/014-where-clause.md) |
-| 5 | Non-deterministic functions | Defer to user | [013](adr/013-sql-pass-through-expressions.md) |
+| 4 | Mid-transform filter | Inline + trailing WHERE | [014](../adr/014-where-clause.md) |
+| 5 | Non-deterministic functions | Defer to user | [013](../adr/013-sql-pass-through-expressions.md) |
 | 6 | Union sources | Regular SQL VIEWs | |
 | 7 | Chained transforms | Chain weaves via VIEWs | |
-| 8 | Conditional expressions | SQL pass-through | [013](adr/013-sql-pass-through-expressions.md) |
+| 8 | Conditional expressions | SQL pass-through | [013](../adr/013-sql-pass-through-expressions.md) |
 | 9 | Explain/validate | PG extension functions | |

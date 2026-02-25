@@ -33,6 +33,17 @@ FROM orders AS o {
 }
 ```
 
+### `SET ... WHEN ...`
+
+Conditionally emits a field only when the predicate is true.
+
+```sql
+FROM orders AS o {
+	SET id = o.id,
+	SET discount_code = o.discount_code WHEN o.discount_code IS NOT NULL
+}
+```
+
 ### `LET`
 
 Computes a reusable intermediate value before emitting fields.

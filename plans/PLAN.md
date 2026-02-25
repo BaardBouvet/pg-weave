@@ -7,7 +7,9 @@ This directory contains planning and design artifacts that are not part of the f
 
 ## Planning docs
 
-- [Gap analysis](GAP_ANALYSIS.md)
+- [Gap analysis](GAPS/GAP_ANALYSIS.md)
+- [DTL transforms gap analysis](GAPS/DTL_TRANSFORMS.md)
+- [DTL expressions gap analysis](GAPS/DTL_EXPRESSIONS.md)
 - [Architecture decisions (ADRs)](adr/README.md)
 
 ## How this plan is used
