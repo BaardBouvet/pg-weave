@@ -48,7 +48,7 @@ FROM person AS p {
   LET order_count = COUNT OF orders,
   SET order_count = order_count,
 
-  WHERE order_count > 10
+  WHERE order_count > 1
 }
 $$);
 ```
