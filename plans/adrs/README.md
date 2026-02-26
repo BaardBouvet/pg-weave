@@ -21,3 +21,5 @@ Architecture Decision Records for the pg_weave project.
 | [019](019-build-constructor.md) | BUILD Constructor for Nested Non-Array Output | Accepted |
 | [021](021-set-conditional-sugar.md) | WHEN PRESENT Sugar for Conditional SET | Rejected |
 | [022](022-stage-locality-and-visibility.md) | Stage Locality and Visibility Rules | Accepted |
+| [023](023-source-model-layer.md) | MODEL Layer — Rejected (Use Weave Chaining) | Rejected |
+| [024](024-semantic-annotations.md) | Semantic Annotations — Rejected (Defer) | Rejected |

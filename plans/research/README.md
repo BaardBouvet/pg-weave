@@ -5,6 +5,7 @@
 ## Documents
 
 - [Malloy, BigQuery Pipe SQL, and OSI/MetricFlow analysis (2026-02)](external-landscape-2026-02.md)
+- [Malloy Quickstart vs pg_weave gap analysis (2026-02)](malloy-gap-analysis.md)
 
 ## Usage
 

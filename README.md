@@ -2,17 +2,17 @@
 
 ## Vision
 
-pg_weave is a fresh, SQL-inspired language for shaping complex PostgreSQL data into clear, reusable models.
+pg_weave is a small, SQL-inspired language for reshaping PostgreSQL data -- turning flat rows, JSONB documents, and related tables into nested, structured outputs.
 
-Write transforms that read like intent, not plumbing — then compile them into standard PostgreSQL `VIEW`s that fit naturally into your existing stack.
+No modeling step. No schema declarations. No new stack to learn. If you know SQL, you can start immediately.
 
-pg_weave is not a replacement for SQL. It keeps SQL at the center and makes the repetitive nested-shaping parts dramatically easier.
+Write transforms that read like intent, then compile them into standard PostgreSQL `VIEW`s that slot into your existing tooling.
 
-- Works with real-world table shapes: typed columns, JSONB, arrays, and mixed schemas
-- SQL pass-through by default for expressions and functions
-- Optional output typing: start schemaless, add `INTO` typed nested outputs when needed
+- Point at tables and reshape directly -- no upfront setup
+- SQL expressions and functions pass through unchanged
+- Nested outputs default to JSONB; add `INTO` for typed composites when you're ready
 - Primary runtime: PostgreSQL extension (`pg_weave(...)`)
-- Output: deterministic SQL suitable for normal PG tooling and materialization flows
+- Output: deterministic SQL VIEWs compatible with standard PG tooling
 
 ## Annotated Example
 
