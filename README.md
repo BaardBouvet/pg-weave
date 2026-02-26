@@ -10,9 +10,8 @@ Write transforms that read like intent, then compile them into standard PostgreS
 
 - Point at tables and reshape directly -- no upfront setup
 - SQL expressions and functions pass through unchanged
-- Nested outputs default to JSONB; add `INTO` for typed composites when you're ready
-- Primary runtime: PostgreSQL extension (`pg_weave(...)`)
-- Output: deterministic SQL VIEWs compatible with standard PG tooling
+- Nested outputs default to JSONB; use `INTO` only when typed composites are required
+- PostgreSQL extension entrypoint: `pg_weave(...)` compiles transforms into standard `VIEW`s
 
 ## Annotated Example
 
