@@ -48,21 +48,16 @@ collect_expr         ::= "COLLECT"
                          "ON" sql_expr
                          [inline_where]
                          ["INTO" type_ref "[" "]"]
-                         [order_by_clause]
                          block
-                         [order_by_clause]
-                         [limit_clause] ;
+                         [order_by_clause] ;
 
 map_expr             ::= "MAP" value_expr "AS" identifier
                          [inline_where]
                          ["INTO" type_ref "[" "]"]
-                         [order_by_clause]
                          ( "->" sql_expr | block [order_by_clause] ) ;
 
 order_by_clause      ::= "ORDER" "BY" order_item { "," order_item } ;
 order_item           ::= sql_expr ["ASC" | "DESC"] ;
-
-limit_clause         ::= "LIMIT" integer ;
 
 type_ref             ::= pg_type
                        | "jsonb"

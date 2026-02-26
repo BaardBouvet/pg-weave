@@ -22,11 +22,9 @@ conventions:
 | **MAP** | `NEST array AS ...` | map | Transform each array element | `jsonb_build_object` / row expression + aggregate (mode-dependent) |
 | **FLATMAP** | `EMIT ... AS ...` | flatMap | Explode array into output rows (1→N) | `LATERAL jsonb_array_elements` |
 
-Both MAP and COLLECT support `ORDER BY expr [ASC|DESC]` in two positions:
-- **Before the block** — pre-sort: orders input elements by a source field
-- **After the block** — post-sort: orders output by a computed field
+MAP and COLLECT support `ORDER BY expr [ASC|DESC]` after the block.
 
-Pre-sort compiles to ordering inside the aggregate (`jsonb_agg(... ORDER BY expr)` / `array_agg(... ORDER BY expr)`). Post-sort wraps in a subquery to sort by the computed value.
+Post-block sorting can reference computed fields from the block and compiles to stable nested-array ordering.
 
 ### Examples
 
@@ -48,10 +46,10 @@ FROM orders AS o {
 -- COLLECT: nest orders onto customers (ORDER BY controls nested array order)
 FROM customers AS c {
   SET name = c.name,
-  SET orders = COLLECT orders AS o ON o.customer_id = c._id ORDER BY o.amount DESC {
+  SET orders = COLLECT orders AS o ON o.customer_id = c._id {
       SET order_id = o._id,
       SET total    = o.amount
-  }
+  } ORDER BY total DESC
 }
 ```
 
@@ -72,7 +70,7 @@ SET chain = COLLECT customers AS ref FOLLOW ref.referred_by DEPTH 5 { ... }
 SET tree  = COLLECT RECURSIVE employees AS r FOLLOW r.manager_id DEPTH 8 { ... }
 ```
 
-Post-sort can reference LET bindings computed inside the block:
+`ORDER BY` can reference `LET` bindings computed inside the block:
 
 ```
 -- Sort MAP output by a LET value that doesn't appear in the output
@@ -82,8 +80,6 @@ SET items = MAP o.items AS item {
   SET price = item.price
 } ORDER BY discount.rate DESC
 ```
-
-Pre-sort (`ORDER BY` before the block) can only reference source fields; post-sort (`ORDER BY` after the block) can reference any SET field, including those derived from LETs.
 
 ## Rationale
 
