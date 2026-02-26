@@ -29,3 +29,25 @@ Simple single-hop lookups use `LET` + `LOOKUP ... ON`.
 - `WITH RECURSIVE` CTEs may be harder for IVM extensions to maintain incrementally
 - Graph traversals over large datasets can be expensive — need depth limits and index guidance
 - Bidirectional traversal requires generating reverse-edge subqueries
+
+## Example: hobbies of all female descendants
+
+Hop 1 uses `FOLLOW` (recursive, same dataset). Hop 2 is a regular `COLLECT ... ON` (cross-dataset join). The result should be a flat list of hobby names across all female descendants.
+
+```sql
+FROM person AS p {
+    -- hop 1 (recursive): follow children, keep only females
+    LET daughters = COLLECT person AS d FOLLOW children
+        WHERE d.gender = 'female' {
+        SET id      = d.id,
+        SET hobbies = d.hobbies
+    },
+
+    -- hop 2: collect hobby names via SQL flatten
+    SET hobby_names = COLLECT hobby AS h
+        ON h.id IN (SELECT unnest(d.hobbies) FROM unnest(daughters) AS d)
+        -> h.name
+}
+```
+
+**Open question:** flattening nested collection results currently requires SQL pass-through (`unnest`). A DSL-native flatten (e.g. expression-form `FLATMAP` with `->`) would make chained hops more ergonomic.
