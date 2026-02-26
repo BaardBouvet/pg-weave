@@ -18,4 +18,4 @@ Architecture Decision Records for the pg_weave project.
 | [016](016-collect-output-types.md) | Nested Output Defaults — JSONB Without Output Schema | Accepted |
 | [017](017-array-length-helper.md) | Polymorphic Array-Length Helper | Accepted |
 | [018](018-polymorphic-collection-helpers.md) | Polymorphic Collection Helpers (Beyond COUNT OF) | Proposed |
-| [020](020-with-jsonb-input-validation.md) | WITH Clause — JSONB Input Shape Validation | Proposed |
+| [019](019-build-constructor.md) | BUILD Constructor for Nested Non-Array Output | Proposed |

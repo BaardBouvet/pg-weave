@@ -81,6 +81,17 @@ FROM orders AS o {
 }
 ```
 
+`LET` is also the recommended way to avoid repeating deep source paths:
+
+```sql
+FROM customers AS c {
+	LET contact = c.data.profile.contact,
+	SET email   = contact.email,
+	SET phone   = contact.phone,
+	SET city    = contact.address.city
+}
+```
+
 ### `WHERE` (inline and trailing)
 
 Uses inline filtering on input rows and trailing filtering on computed values.
