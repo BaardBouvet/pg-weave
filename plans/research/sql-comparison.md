@@ -267,6 +267,220 @@ run: customer_source -> {
 
 **~35 lines** (12 source + 23 query). The query itself is the cleanest of all four -- `nest:` blocks mirror output shape just like pg_weave's `COLLECT`, and path traversal (`orders.line_items.sku`) removes the need for ON clauses inside the query. The cost is the mandatory source model: every join, dimension, and measure must be declared before you query. For a single query this is overhead; across many queries over the same tables it pays back.
 
+## Construct-by-construct compilation
+
+How each pg_weave construct renders to SQL. One line of DSL often maps to several lines of boilerplate.
+
+### `FROM source AS alias { ... }`
+
+```sql
+-- pg_weave
+FROM orders AS o { SET id = o.id }
+
+-- SQL
+CREATE VIEW ... AS SELECT o.id AS id FROM orders o;
+```
+
+Straightforward — no win, no loss.
+
+### `SET field = expr`
+
+```sql
+-- pg_weave
+SET total_label = 'USD ' || o.amount::text
+
+-- SQL
+'USD ' || o.amount::text AS total_label
+```
+
+1:1 mapping. The difference is name-first readability, not line count.
+
+### `SET field = expr WHEN pred`
+
+```sql
+-- pg_weave
+SET vip = true WHEN order_count >= 10
+
+-- SQL
+CASE WHEN order_count >= 10 THEN true ELSE NULL END AS vip
+```
+
+Mild sugar — removes the CASE/ELSE/END boilerplate.
+
+### `LET name = expr`
+
+```sql
+-- pg_weave
+LET total = o.subtotal + o.tax,
+SET total = total,
+SET high  = true WHEN total > 1000
+
+-- SQL (expression inlined at every usage site)
+(o.subtotal + o.tax) AS total,
+CASE WHEN (o.subtotal + o.tax) > 1000 THEN true ELSE NULL END AS high
+```
+
+LET avoids repeating non-trivial expressions. SQL has no equivalent without a CTE or subquery wrapper.
+
+### `LET x = LOOKUP table ON cond`
+
+```sql
+-- pg_weave
+LET co = LOOKUP countries ON id = c.country_id,
+SET country = co.name
+
+-- SQL
+LEFT JOIN countries co ON co.id = c.country_id
+-- then in SELECT:
+co.name AS country
+```
+
+Similar line count, but LOOKUP is scoped inside the block — the join doesn't leak into a separate clause.
+
+### `COLLECT table AS alias ON cond { ... } ORDER BY`
+
+This is where the gap opens.
+
+```sql
+-- pg_weave
+SET orders = COLLECT orders AS o ON o.customer_id = c.id {
+    SET id     = o.id,
+    SET amount = o.amount
+} ORDER BY amount DESC
+
+-- SQL
+LEFT JOIN LATERAL (
+    SELECT
+        jsonb_agg(
+            jsonb_build_object('id', o.id, 'amount', o.amount)
+            ORDER BY o.amount DESC
+        ) AS orders
+    FROM orders o
+    WHERE o.customer_id = c.id
+) o_agg ON true
+-- then in SELECT:
+o_agg.orders
+```
+
+**3 lines vs 10 lines.** Every COLLECT adds another LATERAL join + jsonb_agg + jsonb_build_object wrapper. Nested COLLECTs (COLLECT inside COLLECT) stack these wrappers — the SQL grows quadratically.
+
+### Two-level `COLLECT` (nested)
+
+```sql
+-- pg_weave
+SET orders = COLLECT orders AS o ON o.customer_id = c.id {
+    SET id = o.id,
+    SET items = COLLECT line_items AS li ON li.order_id = o.id {
+        SET sku = li.sku
+    } ORDER BY sku ASC
+} ORDER BY o.created_at DESC
+
+-- SQL
+LEFT JOIN LATERAL (
+    SELECT jsonb_agg(
+        jsonb_build_object(
+            'id', o.id,
+            'items', li_agg.items
+        ) ORDER BY o.created_at DESC
+    ) AS orders
+    FROM orders o
+    LEFT JOIN LATERAL (
+        SELECT jsonb_agg(
+            jsonb_build_object('sku', li.sku)
+            ORDER BY li.sku ASC
+        ) AS items
+        FROM line_items li
+        WHERE li.order_id = o.id
+    ) li_agg ON true
+    WHERE o.customer_id = c.id
+) o_agg ON true
+```
+
+**7 lines vs 17 lines.** The pg_weave nesting mirrors the output shape. The SQL nesting is inverted: the innermost subquery (line_items) must be written first, threaded through jsonb_build_object, and wrapped in the outer jsonb_agg. Adding a third level adds another ~8 SQL lines but only ~3 pg_weave lines.
+
+### `COUNT OF`, `IS EMPTY`, `FIRST OF`, `LAST OF`
+
+```sql
+-- pg_weave
+LET orders = COLLECT orders AS o ON o.customer_id = c.id { ... },
+SET order_count = COUNT OF orders,
+SET has_orders  = IS NOT EMPTY orders,
+SET top_order   = FIRST OF orders
+
+-- SQL (JSONB path)
+jsonb_array_length(o_agg.orders) AS order_count,
+(o_agg.orders IS NOT NULL AND jsonb_array_length(o_agg.orders) > 0) AS has_orders,
+o_agg.orders->0 AS top_order
+```
+
+The helpers are concise sugar. The real benefit is composability — they work uniformly on any array expression (COLLECT result, LET binding, MAP output) without the caller worrying about JSONB vs typed array implementation.
+
+### `COLLECT ... FOLLOW` (graph traversal)
+
+```sql
+-- pg_weave
+SET children = COLLECT categories AS child
+    FOLLOW parent_id DEPTH 5 {
+    SET id    = child.id,
+    SET name  = child.name,
+    SET depth = DEPTH()
+}
+
+-- SQL
+WITH RECURSIVE tree AS (
+    SELECT id, name, parent_id, 0 AS depth
+    FROM categories
+    WHERE parent_id = c.id
+  UNION ALL
+    SELECT cat.id, cat.name, cat.parent_id, tree.depth + 1
+    FROM categories cat
+    JOIN tree ON cat.parent_id = tree.id
+    WHERE tree.depth < 5
+)
+SELECT jsonb_agg(
+    jsonb_build_object('id', id, 'name', name, 'depth', depth)
+) FROM tree
+```
+
+**4 lines vs 14 lines.** The recursive CTE boilerplate is entirely hidden. DEPTH(), PATH(), and CHILDREN() would each add more manual bookkeeping in the SQL version.
+
+### `BUILD`
+
+```sql
+-- pg_weave
+SET summary = BUILD {
+    SET subtotal = o.subtotal,
+    SET tax      = o.tax,
+    SET total    = o.subtotal + o.tax
+}
+
+-- SQL
+jsonb_build_object(
+    'subtotal', o.subtotal,
+    'tax', o.tax,
+    'total', o.subtotal + o.tax
+) AS summary
+```
+
+Modest sugar — but BUILD blocks are nestable and composable with COLLECT, which avoids deeply nested jsonb_build_object calls.
+
+### Summary
+
+| Construct | pg_weave | SQL expansion | Ratio |
+|---|---|---|---|
+| SET | 1 line | 1 line | 1:1 |
+| SET ... WHEN | 1 line | 1 line (CASE/WHEN/ELSE/END) | ~1:1 |
+| LET | 1 declaration, reuse everywhere | expression repeated at each site | 1:N |
+| LOOKUP | 1 line (scoped in block) | LEFT JOIN (separate clause) | ~1:1 |
+| COLLECT (1 level) | ~3 lines | ~10 lines | 1:3 |
+| COLLECT (2 levels) | ~7 lines | ~17 lines | 1:2.5 |
+| COLLECT (3 levels) | ~11 lines | ~25+ lines | 1:2.5+ |
+| COUNT OF / helpers | 1 line | 1 line (but API-specific) | ~1:1 |
+| COLLECT FOLLOW | ~4 lines | ~14 lines (WITH RECURSIVE) | 1:3.5 |
+| BUILD | ~3 lines | ~4 lines (jsonb_build_object) | ~1:1.3 |
+
+**The win is concentrated in COLLECT.** Flat transforms (SET, LET, WHERE) are roughly 1:1 with SQL. The compounding benefit kicks in with nesting: each additional COLLECT level adds ~3-4 pg_weave lines but ~8-10 SQL lines. Real-world transforms with 2-3 nesting levels, multiple LOOKUPs, and conditional fields see a 2-3x line reduction.
+
 ## Observations
 
 | | pg_weave | SQL | BigQuery Pipe | Malloy |
