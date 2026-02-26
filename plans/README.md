@@ -9,6 +9,7 @@ This directory contains planning and design artifacts that are not part of the f
 
 - [DTL comparison docs](dtl/)
 - [Architecture decisions (ADRs)](adrs/)
+- [External landscape research](research/)
 
 ## How this plan is used
 
