@@ -1,6 +1,6 @@
 # ADR 005: Graph-Aware Traversals via COLLECT FOLLOW
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Date:** 2026-02-22
 
 ## Context

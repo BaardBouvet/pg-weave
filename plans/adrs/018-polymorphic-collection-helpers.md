@@ -1,6 +1,6 @@
 # ADR 018: Polymorphic Collection Helpers (Beyond COUNT OF)
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Date:** 2026-02-25
 
 ## Context

@@ -1,6 +1,6 @@
 # ADR 019: BUILD Constructor for Nested Non-Array Output
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Date:** 2026-02-26
 
 ## Context

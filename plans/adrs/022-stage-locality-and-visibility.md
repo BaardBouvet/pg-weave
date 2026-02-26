@@ -1,6 +1,6 @@
 # ADR 022: Stage Locality and Visibility Rules
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Date:** 2026-02-26
 
 ## Context

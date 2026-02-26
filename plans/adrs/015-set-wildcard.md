@@ -1,6 +1,6 @@
 # ADR 015: SET * — Wildcard Column Copy
 
-**Status:** Proposed (needs review)  
+**Status:** Accepted  
 **Date:** 2026-02-22
 
 ## Context
