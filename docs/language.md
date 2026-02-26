@@ -51,6 +51,7 @@ Computes a reusable intermediate value before emitting fields.
 Ordering rule in a block:
 
 - `SET` and `LET` can be interleaved.
+- Each `SET` field name must be unique within a block. For conditional values, use `CASE ... WHEN ... END`.
 - A `LET` binding is in scope from its declaration onward in that block.
 - Referencing a `LET` name before its declaration is invalid.
 - `SET` names are output fields, not reusable expression bindings; use `LET` for references.
@@ -223,6 +224,51 @@ Lowering behavior:
 
 - JSONB array value → `jsonb_array_length(...)`
 - Typed PG array value → `cardinality(...)`
+
+### Composing `COLLECT`/`MAP` outputs
+
+You can reuse `COLLECT` and `MAP` outputs in both DSL helpers and SQL expressions.
+
+```sql
+FROM customers AS c {
+	LET orders = COLLECT orders AS o ON o.customer_id = c.id {
+		SET id     = o.id,
+		SET amount = o.amount
+	},
+	SET order_count = COUNT OF orders,
+	SET has_orders  = COUNT OF orders > 0
+}
+```
+
+```sql
+FROM orders AS o {
+	LET item_totals = MAP o.data.items AS item -> item.price::numeric * item.qty::integer,
+	SET item_count  = COUNT OF item_totals,
+	SET has_items   = COUNT OF item_totals > 0
+}
+```
+
+Conditional logic based on computed values uses `CASE`:
+
+```sql
+FROM customers AS c {
+	LET orders = COLLECT orders AS o ON o.customer_id = c.id {
+		SET id = o.id
+	},
+	LET order_count = COUNT OF orders,
+	SET order_count = order_count,
+	SET tier = CASE
+		WHEN order_count > 5 THEN 'gold'
+		WHEN order_count > 0 THEN 'active'
+		ELSE 'new'
+	END
+}
+```
+
+Function choice depends on output type:
+
+- No `INTO` (`jsonb`) → use JSONB functions (for example `jsonb_array_length(...)`)
+- With `INTO some_type[]` → use array functions (for example `cardinality(...)`)
 
 ## Formal grammar
 

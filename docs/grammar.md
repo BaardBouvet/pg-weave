@@ -72,6 +72,7 @@ sql_expr             ::= <PostgreSQL SQL expression> ;
 ## Interpretation notes
 
 - `SET` and `LET` statements can be interleaved within a block.
+- Each `SET` field name must be unique within a block. Use `CASE ... WHEN ... END` for conditional values.
 - A `LET` binding is available from its declaration onward in the same block; use-before-declaration is invalid.
 - `WHERE` is valid in two places:
   - Inline (`FROM ... WHERE ... {}` / `COLLECT ... WHERE ... {}`)
