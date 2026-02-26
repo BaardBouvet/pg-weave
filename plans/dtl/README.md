@@ -13,6 +13,9 @@
 - [DTL expressions gap analysis](DTL_EXPRESSIONS.md)  
   Category-level analysis of DTL expression functions, with prioritization for helper candidates.
 
+- [DTL hops gap analysis](DTL_HOPS.md)  
+  ADR 005 vs DTL recursive hops — feature comparison, resolved and remaining gaps.
+
 ## Usage
 
 - Use these docs as planning inputs only.
