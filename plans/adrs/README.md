@@ -20,3 +20,4 @@ Architecture Decision Records for the pg_weave project.
 | [018](018-polymorphic-collection-helpers.md) | Polymorphic Collection Helpers (Beyond COUNT OF) | Proposed |
 | [019](019-build-constructor.md) | BUILD Constructor for Nested Non-Array Output | Proposed |
 | [021](021-set-conditional-sugar.md) | WHEN PRESENT Sugar for Conditional SET | Rejected |
+| [022](022-stage-locality-and-visibility.md) | Stage Locality and Visibility Rules | Proposed |
