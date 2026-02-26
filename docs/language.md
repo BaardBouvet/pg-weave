@@ -196,6 +196,21 @@ FROM orders AS o {
 }
 ```
 
+`SET` fields outside a `FLATMAP` block are repeated on every exploded row — useful for carrying parent-row context into the output:
+
+```sql
+FROM orders AS o {
+	-- appears on every item row
+	SET order_id   = o.id,
+	SET order_date = o.created_at,
+
+	FLATMAP o.data.items AS item {
+		SET sku = item.sku,
+		SET qty = item.qty
+	}
+}
+```
+
 ### Multiple `FLATMAP` blocks
 
 Use multiple `FLATMAP` blocks when you want to emit rows from different arrays in one weave. All blocks must declare the same `SET` fields — the result is a `UNION ALL` of each expansion. Mismatched field names are a compile-time error.
@@ -211,6 +226,21 @@ FROM customers AS c {
 		SET customer_id = c.id,
 		SET type  = 'phone',
 		SET value = phone
+	}
+}
+```
+
+### `FLATMAP` inside `COLLECT`
+
+`FLATMAP` inside a `COLLECT` block flattens nested arrays into a single collected array. Each element produced by `FLATMAP` becomes a separate element in the result.
+
+```sql
+FROM orders AS o {
+	SET all_tags = COLLECT line_items AS li ON li.order_id = o.id {
+		-- each line item has multiple tags; flatten into one array
+		FLATMAP li.tags AS tag {
+			SET tag = tag
+		}
 	}
 }
 ```
