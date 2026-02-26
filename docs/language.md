@@ -162,12 +162,22 @@ Full typing rules are documented in [Schema and Typing Guide](schema.md).
 
 ### `MAP`
 
-Transforms each element of an array into a new value.
+Transforms each element of an array into a new value. Supports shorthand (`->`) for single expressions and block form for multi-field objects.
 
 ```sql
 FROM orders AS o {
-	-- compute per-item totals from JSON array elements
+	-- shorthand: single expression per element
 	SET item_totals = MAP o.data.items AS item -> item.price * item.qty
+}
+```
+
+```sql
+FROM orders AS o {
+	-- block form: project multiple fields per element
+	SET line_items = MAP o.data.items AS item {
+		SET sku   = item.sku,
+		SET total = item.price::numeric * item.qty::integer
+	}
 }
 ```
 
