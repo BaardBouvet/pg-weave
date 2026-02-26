@@ -101,7 +101,48 @@ run: person_source -> {
 }
 ```
 
-At this level all four are readable. Pipe syntax has a nice top-down flow. BigQuery's `ARRAY(SELECT AS STRUCT ...)` is cleaner than PostgreSQL's `jsonb_agg(jsonb_build_object(...))`. Malloy's query is the most concise, but requires the source definition upfront. The difference becomes clear when complexity grows.
+### dbt Core
+
+dbt models are plain SQL files with Jinja templating. dbt adds orchestration (DAG, materializations, testing, documentation) but does not change the SQL itself. For nested JSON output you write the same SQL as the "Equivalent SQL" section above:
+
+```yaml
+# models/schema.yml
+version: 2
+models:
+  - name: person_with_orders
+    description: Persons enriched with sorted orders
+    columns:
+      - name: id
+        tests: [not_null, unique]
+```
+
+```sql
+-- models/person_with_orders.sql
+{{ config(materialized='view') }}
+
+select
+  p.id,
+  'customer' as type,
+  upper(p.name) as name,
+  o_agg.orders,
+  o_agg.order_count
+from {{ source('public', 'person') }} p
+left join lateral (
+  select
+    jsonb_agg(
+      jsonb_build_object('id', o.id, 'amount', o.amount)
+      order by o.amount asc
+    ) as orders,
+    count(*) as order_count
+  from {{ source('public', 'orders') }} o
+  where o.cust_id = p.id
+) o_agg on true
+where o_agg.order_count > 1
+```
+
+The SQL is identical to hand-written SQL. dbt adds `{{ source() }}` references, YAML-based column tests, and `materialized='view'` config -- but no syntactic help for the nested jsonb_agg/jsonb_build_object pattern.
+
+At this level all five are readable. Pipe syntax has a nice top-down flow. BigQuery's `ARRAY(SELECT AS STRUCT ...)` is cleaner than PostgreSQL's `jsonb_agg(jsonb_build_object(...))`. Malloy's query is the most concise, but requires the source definition upfront. dbt wraps the same SQL with orchestration. The difference becomes clear when complexity grows.
 
 ---
 
@@ -266,6 +307,77 @@ run: customer_source -> {
 ```
 
 **~35 lines** (12 source + 23 query). The query itself is the cleanest of all four -- `nest:` blocks mirror output shape just like pg_weave's `COLLECT`, and path traversal (`orders.line_items.sku`) removes the need for ON clauses inside the query. The cost is the mandatory source model: every join, dimension, and measure must be declared before you query. For a single query this is overhead; across many queries over the same tables it pays back.
+
+## dbt Core
+
+dbt organises SQL models into files with dependency tracking (`ref()`), testing (YAML), and materialization configs. But the SQL for nested output is unchanged -- you still write LATERAL joins, jsonb_agg, and jsonb_build_object by hand.
+
+```yaml
+# models/schema.yml
+version: 2
+models:
+  - name: customer_overview
+    description: Customers with nested orders, line items, and VIP flag
+    columns:
+      - name: id
+        tests: [not_null, unique]
+      - name: vip
+        description: "true when order_count >= 10"
+```
+
+```sql
+-- models/staging/stg_order_items.sql
+-- dbt encourages breaking complex queries into staged models.
+-- But this intermediate model is flat -- it can't pre-build the
+-- nested JSON structure that the final output needs.
+{{ config(materialized='ephemeral') }}
+
+select
+  o.id,
+  o.customer_id,
+  o.created_at,
+  o.subtotal + o.tax as total,
+  li_agg.items
+from {{ source('public', 'orders') }} o
+left join lateral (
+  select jsonb_agg(
+    jsonb_build_object('sku', li.sku, 'qty', li.qty,
+      'price', li.unit_price * li.qty)
+    order by li.sku asc
+  ) as items
+  from {{ source('public', 'line_items') }} li
+  where li.order_id = o.id
+) li_agg on true
+```
+
+```sql
+-- models/customer_overview.sql
+{{ config(materialized='view') }}
+
+select
+  c.id,
+  c.first_name || ' ' || c.last_name as name,
+  co.name as country,
+  o_agg.orders,
+  o_agg.order_count,
+  case when o_agg.order_count >= 10 then true else null end as vip
+from {{ source('public', 'customers') }} c
+left join {{ source('public', 'countries') }} co on co.id = c.country_id
+left join lateral (
+  select
+    jsonb_agg(
+      jsonb_build_object(
+        'id', oi.id, 'date', oi.created_at,
+        'total', oi.total, 'items', oi.items)
+      order by oi.created_at desc
+    ) as orders,
+    count(*) as order_count
+  from {{ ref('stg_order_items') }} oi
+  where oi.customer_id = c.id
+) o_agg on true
+```
+
+**~45 lines across 3 files** (YAML + staging model + final model). dbt's `ref()` lets you break the query into staged models, but the nested LATERAL join + jsonb_agg pattern is still hand-written. The staging model helps with testing and reuse of the order-items join, but doesn't reduce the structural complexity of producing nested JSON. Adding a third nesting level adds another LATERAL join in another staging model -- the same boilerplate as raw SQL, just organized into files.
 
 ## Construct-by-construct compilation
 
@@ -483,20 +595,25 @@ Modest sugar — but BUILD blocks are nestable and composable with COLLECT, whic
 
 ## Observations
 
-| | pg_weave | SQL | BigQuery Pipe | Malloy |
-|---|---|---|---|---|
-| Line count | ~25 | ~40 | ~30 | ~35 (12 source + 23 query) |
-| Nesting visible in structure | Yes -- block indentation mirrors output shape | No -- LATERAL nesting is inverted (deepest subquery first) | Partial -- top-level is piped, nesting is standard SQL inside `ARRAY()` | Yes -- `nest:` blocks mirror output shape |
-| Adding a field | One `SET` line | Add to `jsonb_build_object` args | Add to `SELECT AS STRUCT` inside `ARRAY()` | One line in `group_by:`/`select:` |
-| Adding another nesting level | Add a `COLLECT` block | Another `LEFT JOIN LATERAL` + `jsonb_agg` + `jsonb_build_object` | Another nested `ARRAY(SELECT AS STRUCT ...)` | Another `nest:` block |
-| LOOKUP (1:1 join) | `LET co = LOOKUP ... ON` | `LEFT JOIN ... ON` | `\|> LEFT JOIN ... ON` | Pre-declared `join_one:` in source |
-| Conditional field | `SET vip = true WHEN ...` | `CASE WHEN ... END` | `IF(expr, TRUE, NULL)` | `pick true when ...` |
-| Ordering nested arrays | `ORDER BY` at block end | `ORDER BY` inside `jsonb_agg()` | `ORDER BY` inside `ARRAY()` | `order_by:` at block end |
-| Upfront model required | No | No | No | Yes -- `source:` definition |
-| Output | PostgreSQL VIEW | PostgreSQL VIEW | Query result (BigQuery) | Query result (multi-DB) |
+| | pg_weave | SQL | BigQuery Pipe | Malloy | dbt Core |
+|---|---|---|---|---|---|
+| Line count | ~25 | ~40 | ~30 | ~35 (12 source + 23 query) | ~45 across 3 files |
+| Nesting visible in structure | Yes -- block indentation mirrors output shape | No -- LATERAL nesting is inverted | Partial -- top-level piped, nesting is SQL inside `ARRAY()` | Yes -- `nest:` blocks mirror output | No -- same SQL, split across files |
+| Adding a field | One `SET` line | Add to `jsonb_build_object` args | Add to `SELECT AS STRUCT` | One line in `group_by:`/`select:` | Add to `jsonb_build_object` (same as SQL) |
+| Adding nesting level | Add a `COLLECT` block | Another LATERAL join wrapper | Another nested `ARRAY()` | Another `nest:` block | Another staging model + LATERAL join |
+| LOOKUP (1:1 join) | `LET co = LOOKUP ... ON` | `LEFT JOIN ... ON` | `\|> LEFT JOIN ... ON` | Pre-declared `join_one:` in source | `LEFT JOIN ... ON` (same as SQL) |
+| Conditional field | `SET vip = true WHEN ...` | `CASE WHEN ... END` | `IF(expr, TRUE, NULL)` | `pick true when ...` | `CASE WHEN ... END` (same as SQL) |
+| Ordering nested arrays | `ORDER BY` at block end | Inside `jsonb_agg()` | Inside `ARRAY()` | `order_by:` at block end | Inside `jsonb_agg()` (same as SQL) |
+| Upfront model required | No | No | No | Yes -- `source:` definition | Yes -- project setup + YAML |
+| Output | PostgreSQL VIEW | PostgreSQL VIEW | Query result (BigQuery) | Query result (multi-DB) | VIEW, table, or incremental |
+| Testing/docs built-in | No | No | No | No | Yes -- YAML schema tests |
+| Multi-DB support | PostgreSQL only | Dialect-specific | BigQuery only | DuckDB, BigQuery, Postgres | All major warehouses |
+| Orchestration | None (single function call) | None | None | None | Full DAG, `ref()`, environments |
 
 The gap grows with every additional nesting level, LOOKUP, or conditional field.
 
 **Pipe syntax verdict:** genuinely cleaner than standard SQL for flat pipelines (filter, extend, aggregate, join). For *nested output structures*, the pipe operators don't help -- you still write standard SQL subqueries inside `ARRAY()`. pg_weave's advantage over pipe syntax is specifically in the nesting.
 
 **Malloy verdict:** the strongest alternative for nested output. `nest:` blocks are structurally equivalent to pg_weave's `COLLECT`, and path traversal through pre-declared joins eliminates ON clauses inside queries. The trade-offs are: (1) a mandatory source model must be written and maintained before any query, (2) Malloy is a separate language and compiler -- not embedded in SQL, (3) output is query results, not materialized VIEWs that other SQL can reference. pg_weave targets a different niche: self-contained transforms that compile to PostgreSQL VIEWs with no modelling step and no toolchain beyond a PG extension.
+
+**dbt Core verdict:** solves a completely different problem. dbt is an orchestration and testing framework for SQL transforms -- it organizes *how models are built, tested, and composed*, not *how the SQL reads*. The SQL inside a dbt model is identical to hand-written SQL: the same LATERAL joins, jsonb_agg calls, and CASE expressions. dbt's `ref()` lets you break complex queries into staged models, but each stage still contains raw SQL boilerplate for nested output. Where dbt shines is project-scale concerns: dependency management, incremental builds, column-level testing, documentation generation, and multi-environment deployment. pg_weave and dbt are complementary -- dbt could orchestrate a project that uses pg_weave-generated VIEWs as upstream sources.
