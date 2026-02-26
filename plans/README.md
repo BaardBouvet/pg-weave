@@ -7,12 +7,10 @@ This directory contains planning and design artifacts that are not part of the f
 
 ## Planning docs
 
-- [Gap analysis](GAPS/GAP_ANALYSIS.md)
-- [DTL transforms gap analysis](GAPS/DTL_TRANSFORMS.md)
-- [DTL expressions gap analysis](GAPS/DTL_EXPRESSIONS.md)
-- [Architecture decisions (ADRs)](adr/README.md)
+- [DTL comparison docs](dtl/)
+- [Architecture decisions (ADRs)](adrs/)
 
 ## How this plan is used
 
-- Keep decision rationale in ADRs (`plans/adr/`)
+- Keep decision rationale in ADRs (`plans/adrs/`)
 - Keep `README.md` at the repo root product-focused
