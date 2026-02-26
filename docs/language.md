@@ -44,6 +44,21 @@ FROM orders AS o {
 }
 ```
 
+For multi-branch conditional values, use SQL `CASE` (pass-through):
+
+```sql
+FROM orders AS o {
+	SET id = o.id,
+	SET priority = CASE
+		WHEN o.amount > 1000 THEN 'high'
+		WHEN o.amount > 100  THEN 'medium'
+		ELSE 'low'
+	END
+}
+```
+
+`SET ... WHEN` is the only DSL-native conditional. `CASE` and all other conditional logic is standard SQL pass-through.
+
 ### `LET`
 
 Computes a reusable intermediate value before emitting fields.
@@ -245,23 +260,6 @@ FROM orders AS o {
 	LET item_totals = MAP o.data.items AS item -> item.price::numeric * item.qty::integer,
 	SET item_count  = COUNT OF item_totals,
 	SET has_items   = COUNT OF item_totals > 0
-}
-```
-
-Conditional logic based on computed values uses `CASE`:
-
-```sql
-FROM customers AS c {
-	LET orders = COLLECT orders AS o ON o.customer_id = c.id {
-		SET id = o.id
-	},
-	LET order_count = COUNT OF orders,
-	SET order_count = order_count,
-	SET tier = CASE
-		WHEN order_count > 5 THEN 'gold'
-		WHEN order_count > 0 THEN 'active'
-		ELSE 'new'
-	END
 }
 ```
 
