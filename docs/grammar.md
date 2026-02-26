@@ -80,5 +80,5 @@ sql_expr             ::= <PostgreSQL SQL expression> ;
 - `MAP` supports both shorthand (`-> sql_expr`) and block form (`{ SET ... }`).
 - `COLLECT` in the stable grammar uses `ON ...` join semantics for related-row collection.
 - `INTO type[]` on `COLLECT`/`MAP` targets a PG composite type for typed array output. Without `INTO`, nested outputs default to JSONB.
-- `COUNT OF array_expr` is a polymorphic language helper that lowers to `jsonb_array_length(...)` for JSONB arrays and `cardinality(...)` for typed PG arrays.
+- `COUNT OF` returns an integer — the length of the array produced by its operand. The operand can be a `LET` binding, a field name, or an inline `COLLECT`/`MAP` expression.
 - `COUNT OF ...` is DSL syntax for array length and does not overlap with SQL aggregate function call syntax.

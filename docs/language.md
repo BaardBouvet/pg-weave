@@ -188,7 +188,7 @@ FROM orders AS o {
 
 ### Multiple `FLATMAP` blocks
 
-Use multiple `FLATMAP` blocks when you want to emit rows from different arrays in one weave.
+Use multiple `FLATMAP` blocks when you want to emit rows from different arrays in one weave. All blocks must declare the same `SET` fields — the result is a `UNION ALL` of each expansion. Mismatched field names are a compile-time error.
 
 ```sql
 FROM customers AS c {
@@ -221,52 +221,35 @@ FROM orders AS o {
 }
 ```
 
-### `COUNT OF array_expr`
+### `COUNT OF`
 
-Use `COUNT OF ...` when you want array length without caring whether the value is JSONB or a typed PostgreSQL array.
+Returns the length of an array. Lowers to `jsonb_array_length(...)` for JSONB or `cardinality(...)` for typed PG arrays.
 
 ```sql
 FROM person AS p {
-	SET orders = COLLECT orders AS o ON o.cust_id = p.id {
+	SET order_count = COUNT OF COLLECT orders AS o ON o.cust_id = p.id {
 		SET id = o.id
-	},
-	LET order_count = COUNT OF orders,
-	SET order_count = order_count
+	}
 }
 ```
 
-Lowering behavior:
+### Composing
 
-- JSONB array value → `jsonb_array_length(...)`
-- Typed PG array value → `cardinality(...)`
-
-### Composing `COLLECT`/`MAP` outputs
-
-You can reuse `COLLECT` and `MAP` outputs in both DSL helpers and SQL expressions.
+`COLLECT`, `MAP`, and `COUNT OF` results compose with each other and with standard SQL expressions.
 
 ```sql
 FROM customers AS c {
+	-- bind a COLLECT result with LET for reuse
 	LET orders = COLLECT orders AS o ON o.customer_id = c.id {
 		SET id     = o.id,
 		SET amount = o.amount
 	},
+	-- COUNT OF works on the bound array
 	SET order_count = COUNT OF orders,
+	-- COUNT OF returns an integer, so standard SQL comparison works
 	SET has_orders  = COUNT OF orders > 0
 }
 ```
-
-```sql
-FROM orders AS o {
-	LET item_totals = MAP o.data.items AS item -> item.price::numeric * item.qty::integer,
-	SET item_count  = COUNT OF item_totals,
-	SET has_items   = COUNT OF item_totals > 0
-}
-```
-
-Function choice depends on output type:
-
-- No `INTO` (`jsonb`) → use JSONB functions (for example `jsonb_array_length(...)`)
-- With `INTO some_type[]` → use array functions (for example `cardinality(...)`)
 
 ## Formal grammar
 
